@@ -8,4 +8,5 @@ This flow meter consists:
 4. there is also direct UI (using lcd 16x2 and 4 buttons) to set gain and set other parameters.
 
 This the web display
+
 ![image](https://github.com/user-attachments/assets/f696eeb7-df71-49bb-b33e-13e3bc40a5be)
