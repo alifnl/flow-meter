@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+	<link rel="icon" type="image/x-icon" href="favicon.ico">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
+	<!--script type="text/javascript" src="./chart.js@2.8.0.js.gz"></script-->
+    <!--script type="text/javascript" src="./d3-dsv.v1.min.js.gz"></script-->
+    <!--script type="text/javascript" src="./d3-fetch.v1.min.js.gz"></script-->
+	<script type="text/javascript" src="https://d3js.org/d3-fetch.v1.min.js"></script>
+	<script type="text/javascript" src="https://d3js.org/d3-dsv.v1.min.js"></script>
+<head>		
+	<title>FlowMeter | BSL</title>
+</head>
+
+<body>
+<h1 style="text-align:center">BSL Flow Meter</h1>
+<h1 class = "all_header" id="dev_time_holder" style="height:25px"></h1>
+<h1 class = "all_header" style="height:25px" id="total_volume_holder">Total Volume:</h1>
+<div style="display:flex; justify-content: center; align-items: center;">
+	<div style="display:flex;gap:10px">
+		<input type="button" class="input_button_main" value="Push Time" onclick="pushtime()">
+		<input type="button" class="input_button_main" value="Reset Vol." onclick="reset_vol()">
+	</div>
+
+</div>
+<div class ="container">
+	<h3>Daily Graph</h3>
+	<div style="display: flex; align-items: center; justify-content: center; gap: 0px; width: 100%;">
+	<label for="datePicker">Select Date:&nbsp;</label>
+	<input type="date" id="datePicker" class="datePicker">
+	<svg viewBox="0 0 30 30" width="20px" height="20px" style="cursor:pointer"onclick="refresh_data()"><path d="M 15 3 C 12.031398 3 9.3028202 4.0834384 7.2070312 5.875 A 1.0001 1.0001 0 1 0 8.5058594 7.3945312 C 10.25407 5.9000929 12.516602 5 15 5 C 20.19656 5 24.450989 8.9379267 24.951172 14 L 22 14 L 26 20 L 30 14 L 26.949219 14 C 26.437925 7.8516588 21.277839 3 15 3 z M 4 10 L 0 16 L 3.0507812 16 C 3.562075 22.148341 8.7221607 27 15 27 C 17.968602 27 20.69718 25.916562 22.792969 24.125 A 1.0001 1.0001 0 1 0 21.494141 22.605469 C 19.74593 24.099907 17.483398 25 15 25 C 9.80344 25 5.5490109 21.062074 5.0488281 16 L 8 16 L 4 10 z"/></svg>	
+	<span id="output"></span>
+	</div>
+	<div class="Graph">
+		<div style='margin-top:10px'>
+		<span id="chartTitle">Chart Title: Display of Data</span>
+		<input type="button" value="Download" onclick='exportCSV(chart_one)' style="width:90px" class="input_button_main"/>
+		</div>
+		<canvas id="main_chart"></canvas>
+	</div>
+</div>
+<div class="container">
+	<h3>CSV Custom Parser</h3>
+	<label for="datePicker_from">From Date:</label>
+	<input type="date" id="datePicker_from" class="datePicker">
+	<label for="datePicker_to">To Date:</label>
+	<input type="date" id="datePicker_to" class = "datePicker">
+	<label for="time_interval">Time interval:</label>
+	<select name="time_interval" id="time_interval" class="datePicker">
+	<option value=1>15 Mins</option>
+	<option value=2>30 Mins</option>
+	<option value=3>1 Hr</option>
+	<option value=4>2 Hrs</option>
+	</select><br>
+	<div style="display:flex; justify-content: center; align-items: center; margin-top:10px">
+		<div style="display:flex;gap:10px">
+			<input type="button" value="Show" class="input_button_main" onclick="collectDates()" />
+			<input type="button" value="Download" onclick='exportCSV(chart_sec)'class="input_button_main"/>
+		</div>
+	</div>
+	
+	<p id="parser_info">Please select from and to date! and then click show</p>
+	<div class="Graph">
+		<canvas id="sec_chart"></canvas>
+	</div>
+</div>
+<div class="container">
+	<h3>Parameter Configuration</h3>
+	<div style="align-items: left; justify-content: none; text-align:left">
+		<label for="HF_gain" class="textbox_label">HF gain:</label><br><input type="text" id="HF_gain"><br>
+		<label for="LF_gain" class="textbox_label">LF gain:</label><br><input type="text" id="LF_gain"><br>
+		<label for="thre_val" class="textbox_label">Threshold (%):</label><br><input type="text" id="thre_val"><br>
+		<label for="max_vol" class="textbox_label">Max Vol (L):</label><br><input type="text" id="max_vol"><br>
+	</div>
+	<div style="display:flex; justify-content: center; align-items: center;margin-bottom:10px;margin-top:5px">
+		<div style="display:flex;gap:10px">
+			<input type="button" class="input_button_main" value="GET" onclick="get_param()">
+			<input type="button" class="input_button_main" value="SET" onclick="set_param()">
+		</div>
+	</div>
+</div>
+<div class="container">
+	<h3>Firmware Update</h3>
+	<table style="width:100%">
+		<tr>
+			<form id="uploadform" method="POST" action="#">
+			<td width="20%" style="font-size:13px"> 
+			SELECT FILE:
+			
+			</td>
+			<td width="20%">
+			<input type="file" name="file" id="file" class="inputfile" oninvalid="update_error_show()"  accept=".bin" required >
+			<label for="file" style="padding-left:5px; padding-right:5px"> BROWSE</label>
+			</td>
+			<td width="60%;" style="text-align:left;padding-left:5px">
+			<input type = "text" id= "filename" class = "input_textbox" readonly value="FILE NAME" style="width:80%; color:grey; font-size:13px">
+			</td>
+			
+		</tr>
+		<tr>
+			<td colspan="4" style="text-align:center">
+				<br>
+				<input type="submit" value="UPDATE" class="input_button" style="width:120px;" id="update_file">
+			</td>
+			</form>
+		</tr>
+		
+    </table>
+    <div id="progress_holder" style="border-radius:10px;"></div>
+    <div style="color:red; margin-top:5px; display:none;" id="update_warning">You must select .bin format file!</div>
+	<br>
+</div>
+<div style="display:flex; justify-content: center; align-items: center;">
+	<div style="display:flex;gap:10px">
+		<input type="button" class="input_button_main" value="Reboot Device" style="margin-top:10px; width: 120px;background: red; color:white;" onclick="reboot()">
+	</div>
+
+</div>
+<h4 style="text-align:center"> FS version: 1.0.0</h3>
+</body>
+
+<script>
+
+var timeout_global = 5000;
+var epoch_global = 0;
+var dev_offset = 7;
+var graph_interval_handler;
+var warning_global = false;
+var warning_index = 0;
+
+//0 -> idle
+//1 -> getting vol
+//2 -> getting time
+//3 -> getting file
+//4 -> upload firmware
+var executing_xhr = 0;
+window.onload = function() {
+    console.log("Page has loaded!");
+    // Call your function here
+    get_time();
+	get_vol();
+	setInterval(function(){
+		epoch_global++;
+		res = epochToJsDate(epoch_global);
+		document.getElementById("dev_time_holder").innerHTML = "Device Time: " + res;
+		var vol_el = document.getElementById("total_volume_holder").style;
+		if(warning_global == 1){
+			if(warning_index == 0){
+				vol_el.color = "white";
+				vol_el.backgroundColor = "red";
+				warning_index = 1;
+			}else{
+				warning_index = 0;
+				vol_el.color = "black";
+				vol_el.backgroundColor = "white";
+			}
+		}else{
+			vol_el.color = "black";
+			vol_el.backgroundColor = "white";
+		}
+	},1000);
+	var a = new Date();
+    var file_date_csv = String(a.getDate()).padStart(2, '0') + "-" + String(a.getMonth() + 1).padStart(2, '0') + "-" + a.getFullYear() + ".csv";
+	fetch_data_graph_and_update(file_date_csv);
+	document.getElementById("chartTitle").innerHTML = "File: " + file_date_csv;
+	document.getElementById("datePicker").value = a.toISOString().split('T')[0]; 
+	//graph_interval_handler = setInterval(function(){fetch_data_graph_and_update(file_date_csv)}, 10000);
+};
+
+document.getElementById("datePicker").addEventListener("change", function() {
+    let selectedDate = document.getElementById("datePicker").value;
+    if(selectedDate == '') return;
+	//fetch csv file
+	var a = new Date(selectedDate);
+    var file_date_csv = 
+        String(a.getDate()).padStart(2, '0') + "-" +
+        String(a.getMonth() + 1).padStart(2, '0') + "-" +
+        a.getFullYear() + ".csv";
+	fetch_data_graph_and_update(file_date_csv);
+	//deactivate interval
+	if (a.toISOString().split('T')[0] === new Date().toISOString().split('T')[0]) {
+    	console.log("Same day");
+		//graph_interval_handler = setInterval(function(){fetch_data_graph_and_update(file_date_csv)}, 10000);
+	}else{
+		clearInterval(graph_interval_handler);
+	}
+});
+
+function pushtime(){
+	//if(executing_xhr) return;
+	//executing_xhr = true;
+	var xhr = new XMLHttpRequest();
+	var gotTime = [];
+	xhr.onreadystatechange = function(){
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			//executing_xhr = false;
+			gotTime = xhr.responseText;
+			//get data time
+			var time_dev_string = epochToJsDate(gotTime);
+			//compare with time browser
+			var a = Math.floor(Date.now() / 1000);
+			var d = new Date();
+			var offset = d.getTimezoneOffset();
+			var pub_time_string = epochToJsDate(a);
+			if(Math.abs(a - gotTime) >= 10){ //10 sec tolerance 
+				//push time to esp
+				//need confirmation 
+				var conText = "Time will change from " + time_dev_string + " to " + pub_time_string + (offset < 0 ? " (+": " (-") + Math.abs(offset)/60 + "), OK?"; 
+				var con = confirm(conText);
+				
+				if(con == true){
+					a = Math.floor(Date.now() / 1000); //recapture epoch
+					var xhttp = new XMLHttpRequest();
+					epoch_global = a;
+					xhttp.open("GET", "/pushTime?"+a, true);
+					xhttp.send();
+				}
+			}else{
+				alert("time already set");			
+			}
+			
+		}
+	};
+	xhr.ontimeout = function(){
+		//executing_xhr = false;
+		pushtime();
+	};
+	xhr.open("GET", "/getTime", true);
+	xhr.send();
+}
+
+function epochToJsDate(ts){
+	// ts = epoch timestamp
+	// returns date obj
+	var a = new Date(ts*1000);
+	var months  = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+	var ret = (a.getHours() < 10 ? '0' + a.getHours() : a.getHours()) + ':' +(a.getMinutes() < 10 ? '0' + a.getMinutes() : a.getMinutes());
+	ret += ':' + (a.getSeconds() <10 ? '0' + a.getSeconds() : a.getSeconds());
+	ret +=  ', ' + a.getDate() + ' ' + months[a.getMonth()] + ' ' + a.getFullYear();
+	return ret; 
+}
+
+function get_time(){
+	if(executing_xhr == 3){
+		setTimeout(get_time,2000);
+		return;
+	}else if(executing_xhr != 0){
+		setTimeout(get_time,2000);
+		return;
+	}
+	executing_xhr = 2;
+	var xhr = new XMLHttpRequest();
+	var res;
+	xhr.timeout = timeout_global;
+	xhr.onreadystatechange = function() {
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			executing_xhr = 0;
+			res = epochToJsDate(xhr.responseText);
+			epoch_global = xhr.responseText;
+			document.getElementById("dev_time_holder").innerHTML = "Device Time: " + res;
+			if(xhr.responseText >=  951561638){
+				setTimeout(get_time, 60000);
+			}else{
+				setTimeout(get_time,5000);
+			}
+		}else{
+			executing_xhr = 0;
+		}
+	}
+	 // Handle timeout error
+	xhr.ontimeout = function() {
+		setTimeout(get_time,5000);
+		executing_xhr = 0;
+    };
+	xhr.open("GET", "/getTime", true);
+	xhr.send();
+}
+var executing_get_vol_xhr = false;
+var timeout_get_vol;
+function get_vol(){
+	
+	if(executing_xhr == 2){
+		clearTimeout(timeout_get_vol);
+		console.log("executing xhr 2 on get vol");
+		timeout_get_vol = setTimeout(get_vol,2000);
+		return;
+	}else if(executing_xhr != 0){
+		clearTimeout(timeout_get_vol);
+		console.log("executing xhr != 0 on get vol");
+		timeout_get_vol = setTimeout(get_vol, 5000);
+		return;
+	}
+	if(executing_get_vol_xhr == true ) return;
+	executing_get_vol_xhr = true;
+	executing_xhr = 1;
+	var xhr = new XMLHttpRequest();
+	xhr.timeout = timeout_global;
+	xhr.onreadystatechange = function() {
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			executing_xhr = 0;
+			//executing_xhr = false;
+			var vol_res = xhr.responseText.split("|");
+			executing_get_vol_xhr = false;
+			document.getElementById("total_volume_holder").innerHTML = "Total Volume: " + vol_res[0] + "("+vol_res[1]+")";
+			warning_global = vol_res[2];
+			clearTimeout(timeout_get_vol);
+			console.log("got volume");
+		    timeout_get_vol = setTimeout(get_vol, 10000);
+		}
+	}
+	 // Handle timeout error
+	xhr.ontimeout = function() {
+		clearTimeout(timeout_get_vol);
+		console.log("executing xhr != 0 on get vol");
+		timeout_get_vol = setTimeout(get_vol, 2000);
+		executing_get_vol_xhr = false;
+		executing_xhr = 0;
+    };
+	xhr.open("GET", "/getVol", true);
+	xhr.setRequestHeader("Connection", "close"); // Disable keep-alive
+	xhr.send();
+}
+
+function reset_vol(){
+	//if(executing_xhr) return;
+	//executing_xhr = true;
+	var reset_alert = confirm("Are you sure want to reset?");
+	if(!reset_alert) return;
+	var xhr = new XMLHttpRequest();
+	xhr.timeout = timeout_global;
+
+	xhr.onreadystatechange = function() {
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			//executing_xhr = false;
+			setTimeout(get_vol,1500);
+		}
+	}
+	 // Handle timeout error
+	xhr.ontimeout = function() {
+		//get_vol();
+		alert("reset volume request timeout! Try again");
+		//executing_xhr = false;
+    };
+	xhr.open("GET", "/resetVol", true);
+	xhr.setRequestHeader("Connection", "close"); // Disable keep-alive
+	xhr.send();
+}
+
+function reboot(){
+	var reset_alert = confirm("Are you sure want to reboot device?");
+	if(!reset_alert) return;
+	var xhr = new XMLHttpRequest();
+	xhr.timeout = timeout_global;
+
+	 // Handle timeout error
+	xhr.ontimeout = function() {
+		alert("reset volume request timeout! Try again");
+    };
+	xhr.onreadystatechange = function() {
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			alert("reboot success! refreshing page!");
+			setTimeout(location.reload(), 1000);
+		}
+	}
+	xhr.open("GET", "/reboot", true);
+	xhr.send();
+}
+function get_param(){
+	var xhr = new XMLHttpRequest();
+	xhr.timeout = timeout_global;
+	xhr.onreadystatechange = function() {
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			const jsonData = JSON.parse(xhr.responseText);
+			// Populate text boxes if the keys exist
+			document.getElementById("HF_gain").value = jsonData.HF_gain/1000.0 || '';
+			document.getElementById("LF_gain").value = jsonData.LF_gain/1000.0 || '';
+			document.getElementById("thre_val").value = jsonData.thre|| '';
+			document.getElementById("max_vol").value = jsonData.max_vol || '';
+		}else{
+			alert("Get Parameter error!");
+		}
+	}
+	 // Handle timeout error
+	xhr.ontimeout = function() {
+		//get_vol();
+		get_param();
+		//executing_xhr = false;
+    };
+	var data = {
+		mode: "GET",
+		HF_gain: 0,
+		LF_gain: 0,
+		thre: 0,
+		max_vol: 0
+	};
+	// Convert data object to JSON string
+	var jsonString = JSON.stringify(data);
+	xhr.open("POST", "/confParam", true);
+	xhr.setRequestHeader("Connection", "close"); // Disable keep-alive
+	xhr.send(jsonString);
+}
+
+function set_param(){
+	var xhr = new XMLHttpRequest();
+	xhr.timeout = timeout_global;
+	xhr.onreadystatechange = function() {
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			alert("set param successful!")
+		}
+	}
+	 // Handle timeout error
+	xhr.ontimeout = function() {
+		//get_vol();
+		set_param();
+		//executing_xhr = false;
+    };
+	var data = {
+		mode: "SET",
+		HF_gain: document.getElementById("HF_gain").value * 1000,
+		LF_gain: document.getElementById("LF_gain").value * 1000,
+		thre: Number(document.getElementById("thre_val").value),
+		max_vol: Number(document.getElementById("max_vol").value)
+	};
+	// Convert data object to JSON string
+	var jsonString = JSON.stringify(data);
+	xhr.open("POST", "/confParam", true);
+	xhr.setRequestHeader("Connection", "close"); // Disable keep-alive
+	xhr.send(jsonString);
+	//console.log(jsonString);
+}
+function refresh_data(){
+	
+	let selectedDate = document.getElementById("datePicker").value;
+    if(selectedDate == '') return;
+	//fetch csv file
+	var a = new Date(selectedDate);
+    var file_date_csv = 
+        String(a.getDate()).padStart(2, '0') + "-" +
+        String(a.getMonth() + 1).padStart(2, '0') + "-" +
+        a.getFullYear() + ".csv";
+	fetch_data_graph_and_update(file_date_csv);
+}
+
+function exportCSV(chart_number) {
+    var labels = chart_number.data.labels;
+    var volume = chart_number.data.datasets[0].data;
+	if(labels.length == 0){
+		return;
+	}
+    var csvContent = "time;volume\n";
+
+    labels.forEach((time, index) => {
+        csvContent += `${time};${volume[index]}\n`;
+    });
+
+    var blob = new Blob([csvContent], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    
+    var a = document.createElement('a');
+    a.href = url;
+	if(chart_number == chart_one){
+		var name = document.getElementById("chartTitle").innerHTML;
+		name = name.substr(6); 
+		a.download = name;
+	}else{
+		a.download = "customCSV.csv";
+	}
+	
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+function addData(chart, label, data1, data2, data3) {
+	chart.data.labels =(label);
+	chart.data.datasets[0].data = data1;
+	chart.data.datasets[1].data = data2;
+	chart.data.datasets[2].data = data3;
+	chart.update();
+}
+var current_graph;
+
+function fetch_data_graph_and_update(file_date_csv){
+	console.log("fetching file: " + file_date_csv);
+	document.getElementById("chartTitle").innerHTML = "....";
+	fetch_graph_data(file_date_csv, function(u){
+	document.getElementById("chartTitle").innerHTML = "File: " + file_date_csv;
+	if(u.res != null){
+		var psv = d3.dsvFormat(";");
+		current_graph = psv.parse(u.res);
+		update_graph(chart_one);
+		document.getElementById("output").innerText = "";
+	}else if(u.code == 404){
+		//null result
+		document.getElementById("output").innerText = "File doesn't exist!";
+		document.getElementById("output").style.color = "red";
+		document.getElementById("output").style.fontWeight = "bold";
+		addData(chart_one,[],[],[],[]);
+	}else if(u.code == 400){
+		document.getElementById("output").innerText = "Process Timeout!";
+		document.getElementById("output").style.color = "red";
+		document.getElementById("output").style.fontWeight = "bold";
+		addData(chart_one,[],[],[],[]);
+	}
+	});
+}
+
+function update_graph(chart_number){	
+	if(current_graph == null) return;	
+
+	var base = current_graph.map(function(e){
+		return epochToClock(e.epoch, chart_number == chart_one ? 0 : 1 );
+	});
+	var pulse = current_graph.map(function(e){
+		return Number(e.pulse == '' ? null : e.pulse); 
+	});
+	var vol_value = current_graph.map(function(e){
+		return Number(e.Total == '' ? null : e.Total/1000);
+	});
+	var inst_vol = current_graph.map(function(e){
+		return Number (e.Inst == '' ? null : e.Inst)
+	});
+	addData(chart_number, base, vol_value, inst_vol, pulse);
+}
+
+function fetch_graph_data(file_name, callback){
+	executing_xhr = 3;
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET", "/csv?" + file_name, true);
+	xhr.send();
+	xhr.timeout = timeout_global*2;
+	xhr.ontimeout = function (e) {
+		callback({code:400, res: null});
+		executing_xhr = 0;
+	};
+	xhr.onreadystatechange = function() {
+		if(xhr.readyState != 4){return;}
+		if(xhr.status == 200){
+			callback({code:200, res: xhr.responseText});
+			executing_xhr = 0;
+		}else{
+			callback({code: xhr.status, res: null} );
+			executing_xhr = 0;
+		}
+	}
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    let today = new Date().toISOString().split("T")[0];
+    document.getElementById("datePicker_to").setAttribute("max", today);
+});
+function timeIntervalToSeconds(interval) {
+    switch (parseInt(interval)) {
+        case 1: return 15 * 60;  // 15 mins in seconds
+        case 2: return 30 * 60;  // 30 mins in seconds
+        case 3: return 60 * 60;  // 1 hour in seconds
+        case 4: return 2 * 60 * 60; // 2 hours in seconds
+        default: return 15 * 60; // Default to 15 mins
+    }
+}
+
+function fetch_and_update_bundle(dates, timeInterval) {
+    let allData = []; // Store parsed data from all files
+    let index = 0; // Track which file is being fetched
+	let parserInfo = document.getElementById("parser_info");
+    function fetchNext() {
+        if (index >= dates.length) {
+            console.log(allData);
+			current_graph = allData;
+			update_graph(chart_sec);
+			execute_bundle_data = false;
+			if(parserInfo.innerHTML == "....") parserInfo.innerHTML = "";
+            return;
+        }
+
+        let file_date_csv = dates[index] + ".csv"; // Assuming CSV file format
+        fetch_graph_data(file_date_csv, function (u) {
+            if (u.res != null) {
+                var psv = d3.dsvFormat(";");
+                let parsedData = psv.parse(u.res);
+
+                // Filter data based on selected time interval
+                let filteredData = filterDataByInterval(parsedData, timeInterval);
+                allData.push(...filteredData);
+            } else if (u.code == 404) {
+				parserInfo.style.color = "red";
+				if(parserInfo.innerHTML == "...."){
+					 parserInfo.innerHTML = "File not exist: ";
+				}else{
+					parserInfo.innerHTML += ", "
+				}
+				parserInfo.innerHTML += file_date_csv; 
+            }
+
+            index++;
+            fetchNext(); // Fetch the next file
+        });
+    }
+
+    fetchNext(); // Start fetching files
+}
+
+function filterDataByInterval(data, timeInterval) {
+    let filteredData = [];
+    let lastEpoch = null;
+
+    data.forEach(row => {
+        let currentEpoch = Number(row.epoch); // Ensure epoch is a number
+
+        if (lastEpoch === null || (currentEpoch - lastEpoch) >= timeIntervalToSeconds(timeInterval) ) {
+            filteredData.push({
+                epoch: currentEpoch,
+                pulse: row.pulse === "" ? null : Number(row.pulse),
+                Total: row.Total === "" ? null : Number(row.Total), 
+                Inst: row.Inst === "" ? null : Number(row.Inst)
+            });
+
+            lastEpoch = currentEpoch; // Update last processed time
+        }
+    });
+
+    return filteredData;
+}
+
+var execute_bundle_data = false;
+function collectDates() {
+	if(execute_bundle_data == true) return;
+	execute_bundle_data = true;
+    let fromDate = document.getElementById("datePicker_from").value;
+    let toDate = document.getElementById("datePicker_to").value;
+    let parserInfo = document.getElementById("parser_info");
+	let timeInterval = document.getElementById("time_interval").value;
+	console.log(timeInterval);
+    if (!fromDate || !toDate) {
+        parserInfo.innerText = "\u26A0\uFE0F Please select both dates.";
+		parserInfo.style.color = "rgb(250, 93, 2)";
+        return;
+    }
+
+    let start = new Date(fromDate);
+    let end = new Date(toDate);
+    let maxDays = 6;
+
+	if (end < start) {
+        parserInfo.innerText = "\u26A0\uFE0F To Date cannot be earlier than From Date!";
+		parserInfo.style.color = "rgb(250, 93, 2)";
+        return;
+    }
+	
+    // Check if the range exceeds 7 days
+    let diffTime = end - start;
+    let diffDays = diffTime / (1000 * 60 * 60 * 24); // Convert milliseconds to days
+
+    if (diffDays > maxDays) {
+        parserInfo.innerText = "\u26A0\uFE0F Date range must not exceed 7 days!";
+		parserInfo.style.color = "rgb(250, 93, 2)";
+        return;
+    }
+
+    let dates = [];
+    let current = new Date(start);
+
+    while (current <= end) {
+        let formattedDate = ("0" + current.getDate()).slice(-2) + "-" +
+                            ("0" + (current.getMonth() + 1)).slice(-2) + "-" +
+                            current.getFullYear(); // Format as DD-MM-YYYY
+        dates.push(formattedDate);
+        current.setDate(current.getDate() + 1);
+    }
+	console.log(dates);
+
+    parserInfo.innerText = "....";
+	parserInfo.style.color = "black"
+	fetch_and_update_bundle(dates, timeInterval);
+}
+
+function generateCSVName() {
+    var dateInput = document.getElementById("datePicker").value;
+    if (!dateInput) {
+        document.getElementById("output").innerText = "Please select a date.";
+        return;
+    }
+    
+    var a = new Date(dateInput);
+    var file_date_csv = 
+        String(a.getDate()).padStart(2, '0') + "-" +
+        String(a.getMonth() + 1).padStart(2, '0') + "-" +
+        a.getFullYear() + ".csv";
+    
+    document.getElementById("output").innerText = file_date_csv;
+}
+
+var chart_config = {
+	// The type of chart we want to create
+	type: 'line',
+	// The data for our dataset
+	data: {
+		labels: [],
+		datasets: [{
+			label: 'Total Vol. (L)',
+			backgroundColor: 'rgb(255, 167, 0)',
+			borderColor: 'rgb(255, 167, 0)',
+			data: [],
+			spanGaps:true,
+			fill: false,
+			
+		},{
+			label: 'inst Vol. (mL)',
+			backgroundColor: 'rgb(255, 167, 0)',
+			borderColor: 'rgb(255, 167, 0)',
+			data: [],
+			spanGaps:true,
+			fill: false,
+			hidden:true
+		},{
+			label: 'pulse',
+			backgroundColor: 'rgb(64, 64, 64)',
+			borderColor: 'rgb(64, 64, 64)',
+			data: [],
+			spanGaps:true,
+			fill: false,
+			hidden: true
+		}]
+	},
+	// Configuration options go here
+	options: {
+		scales: {
+			xAxes: [{
+				gridLines:{color:'black'},
+				ticks: {fontColor:'black', maxTicksLimit:25}
+			}],
+			yAxes: [{
+				gridLines:{color:'black'},
+				ticks:{fontColor:'black', maxTicksLimit:25}
+			}]
+
+		},
+		legend: {
+			position: 'bottom',
+			labels: {fontColor: 'black'}
+		}
+	}
+};
+var ctx = document.getElementById('main_chart').getContext('2d');
+var ctx1 = document.getElementById("sec_chart").getContext('2d');
+var chart_one = new Chart(ctx, JSON.parse(JSON.stringify(chart_config))); // Deep copy;
+var chart_sec = new Chart(ctx1, JSON.parse(JSON.stringify(chart_config)));
+function filter_epoch(input){
+	var x = new Date();	var offset = x.getTimezoneOffset();
+	var ret =  input * 1000 + (offset * 60000) + dev_offset*1000; 
+	return ret;
+}
+
+function epochToClock(ts, full){
+	// ts = epoch timestamp
+	// returns date obj
+	var a = new Date(ts*1000);
+	var months  = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+	var ret = String(a.getHours()).padStart(2, '0') + ":" + String(a.getMinutes()).padStart(2, '0');// + ":" + String(a.getSeconds()).padStart(2, '0');
+	if(full == 1) ret +=  ', ' + a.getDate() + '-' + months[a.getMonth()];
+	//ret += (a.getHours() < 10 ? '0' + a.getHours() : a.getHours()) + ':' +(a.getMinutes() < 10 ? '0' + a.getMinutes() : a.getMinutes());
+	return ret; 
+}
+
+
+///////////////////////////////////////firmware update JS//////////////////////////////////////////////////////
+const form = document.querySelector("#uploadform");
+form.addEventListener("submit", e => {
+	executing_xhr = 4;
+    update_error_hide();
+    document.getElementById("progress_holder").innerHTML = '<div id="myProgress"><div id="myBar"></div>	</div><div id="status">0%</div>';
+    e.preventDefault();
+    var files = document.querySelector("#file").files[0];
+    //var data = new FormData();
+    //data.append("bin", files[0]);
+    console.log(files);
+    var xhr = new XMLHttpRequest();
+	
+    xhr.upload.onprogress = function(evt){
+        if(evt.lengthComputable){
+            var per = evt.loaded/evt.total;
+            var percentval = Math.round(per*100) + '%';
+            console.log(per);
+            document.getElementById("status").innerHTML = percentval;
+            document.getElementById("myBar").style.width = percentval;
+        }
+    };
+	xhr.onreadystatechange = function(){
+		if(xhr.readyState == XMLHttpRequest.DONE){
+			if(xhr.status == 200){
+				console.log("end");
+        		document.getElementById("status").innerHTML = "file uploaded";
+				setTimeout(function() {
+					location.reload();
+				}, 5000);
+			}else{
+				document.getElementById("status").innerHTML = "upload rejected";
+				executing_xhr = 0;
+			}
+		}
+	}
+    xhr.addEventListener("error", function(e){
+        document.getElementById("status").innerHTML = "uploading error";
+		executing_xhr = 0;
+    });
+    xhr.open("POST", "/doUpload?"+files.name, true);
+	xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.send(files);
+});
+
+document.getElementById('file').onchange = function () {
+    f = this.value;
+    f = f.replace(/.*[\/\\]/, '');
+    document.getElementById('filename').value = f;
+}
+
+function update_error_show(){
+document.getElementById("update_warning").style.display='block';
+reboot_hide();
+}
+function update_error_hide(){
+document.getElementById("update_warning").style.display='none';
+}
+</script>
+<style>
+.all_header{
+	border-radius: 10px;border:1px solid black;   width:100%; min-height: 20px; margin: auto; text-align:center; color:black;
+	font-size:18px; font-weight: bold; display:flex; justify-content:center; align-items:center;
+	margin-top:5px; margin-bottom:5px;
+}
+
+.Graph {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin: 0 auto;
+	flex-direction: column;
+	max-height: 500px;
+	max-width: 900px;
+}
+
+.container{
+	border-radius: 10px;border:1px solid black;   width:100%;
+	margin: auto; text-align:center; color:black;
+	font-size:18px;  justify-content:center; align-items:center;
+	margin-top:5px; margin-bottom:5px;
+}
+.textbox_label {
+	text-align: right;
+	font-weight: bold;
+	margin-left:2%;
+	margin-top:2%;
+	font-size:15px;
+}
+.container input[type="text"]{
+	width: 90%;
+	padding: 5px;
+	margin-left:2%;
+	margin-bottom:2%;
+	margin-right:2%;
+	border:1px solid #333333; border-radius:10px;
+}
+#main_chart {
+  width: 100%;
+  height: auto;
+}
+
+#chartTitle {
+    text-align: center;
+    margin-bottom: 5px;
+	width:100%;
+}
+body{
+    font-family: Arial;
+}
+.input_button{
+    border-radius: 10px; background: #ffa300;  min-height: 35px; margin: auto; text-align:center; font-size:12px; 
+    cursor: pointer; border: none; color:#333333;font-weight: bold;
+}
+.input_button_main{
+    border-radius: 10px; background: #ffa300;  min-height: 35px; margin: auto; text-align:center; font-size:14px; 
+    cursor: pointer; border: none; color:#333333;font-weight: bold;
+	width:100px;
+}
+.inputfile {
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: -1;
+    font-family: Arial;
+}	
+.inputfile + label {
+    font-size: 12px;
+    font-weight: bold;
+    color: #333333;
+    background-color: #ffa300;
+    border: none;
+    min-height: 25px;
+    max-width: 100px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+.datePicker{
+	margin-right:15px; 
+	border-radius: 5px;
+	border:1px solid #333333; 
+	height:25px;
+	
+}
+#status{
+text-align:center;
+}
+#myProgress {
+width: 95%;
+background-color: #ddd;
+margin-top:10px;
+margin-left:auto;
+border-radius:10px;
+margin-right:auto;
+}
+
+#myBar {
+width: 0%;
+height: 15px;
+border-radius:10px;
+background-color: #ffa300;
+}
+</style>
+
+</html>
